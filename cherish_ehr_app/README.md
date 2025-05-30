@@ -1,75 +1,142 @@
 # Cherish Orthopaedic Centre EHR App
 
-A multi-platform Electronic Health Record (EHR) app built with Flutter and Dart for managing Cherish Orthopaedic Centre clinic business in Nanyuki, Kenya.
-
-## Platforms Supported
-
-- Windows Desktop
-- Android Mobile
+A multi-platform Electronic Health Records (EHR) application for Cherish Orthopaedic Centre, supporting both Windows and Android platforms.
 
 ## Features
 
-- Modern hospital-themed UI/UX
-- Login and Sign-up screens with clinic logo
-- Local data storage using PostgreSQL (Windows) and SQLite (Android)
-- Patient management, appointments, and medical records (to be implemented)
+- Patient Management
+- Appointment Scheduling
+- Email & SMS Notifications via Brevo API
+- Marketing Campaigns
+- Cross-platform Support (Windows & Android)
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
+- Flutter SDK (latest stable version)
+- Windows 10 or later
+- Android SDK Command-line Tools
+- Android NDK
+- PostgreSQL (for Windows version)
+- Brevo API Account
 
-- Flutter SDK installed: https://flutter.dev/docs/get-started/install
-- For Windows desktop support, enable desktop support in Flutter.
-- Android SDK and emulator or physical device for Android testing.
+## Quick Start
 
-### Setup
+1. **Clone and Install Dependencies**
+```bash
+git clone <repository-url>
+cd cherish_ehr_app
+flutter pub get
+```
 
-1. Clone the repository.
+2. **Configure Environment**
+Create `.env` file:
+```env
+BREVO_API_KEY=your_api_key_here
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USERNAME=your_smtp_username
+SMTP_PASSWORD=your_smtp_password
+```
 
-2. Add your clinic logo image:
+## Build Instructions
 
-   Place your clinic logo image as `logo.png` inside the `assets` folder:
+### Android Build (Command Line)
 
-   ```
-   cherish_ehr_app/assets/logo.png
-   ```
+```bash
+# Build debug APK
+flutter build apk --debug
 
-3. Get dependencies:
+# Build release APK
+flutter build apk --release
 
-   ```
-   flutter pub get
-   ```
+# Install on connected device
+flutter install
+```
 
-4. Generate app icons for Android and Windows using flutter_launcher_icons:
+APK location: `build/app/outputs/flutter-apk/app-release.apk`
 
-   ```
-   flutter pub run flutter_launcher_icons:main
-   ```
+### Windows Build
 
-### Running the App
+```bash
+# Enable Windows desktop support
+flutter config --enable-windows-desktop
 
-- To run on Windows desktop:
+# Build debug version
+flutter run -d windows
 
-  ```
-  flutter run -d windows
-  ```
+# Build release version
+flutter build windows --release
+```
 
-- To run on Android device or emulator:
+Windows executable location: `build/windows/runner/Release/`
 
-  ```
-  flutter run -d android
-  ```
+## Database Setup
 
-## Database
+### Windows (PostgreSQL)
+```sql
+CREATE DATABASE cherish_ehr;
+CREATE USER your_username WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE cherish_ehr TO your_username;
+```
 
-- On Windows, the app will connect to a local PostgreSQL database. Ensure PostgreSQL is installed and running.
-- On Android, the app uses SQLite via the `sqflite` package for local storage.
+### Android
+SQLite database is automatically configured and created on first run.
 
-## Notes
+## Release Preparation
 
-- This is an initial version with login and signup UI.
-- Further development is needed to implement full EHR features.
+### Android Release Signing
+1. Generate key:
+```bash
+keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+2. Configure signing:
+Create `android/key.properties`:
+```properties
+storePassword=<password>
+keyPassword=<password>
+keyAlias=upload
+storeFile=../upload-keystore.jks
+```
+
+### Windows Release Distribution
+1. Copy from `build/windows/runner/Release/`:
+   - Main executable
+   - All DLL files
+   - data/ directory
+2. Optional: Create installer using preferred tool
+
+## Troubleshooting
+
+### Build Issues
+```bash
+# Clean build files
+flutter clean
+
+# Get dependencies again
+flutter pub get
+
+# Check Flutter installation
+flutter doctor
+```
+
+### Database Issues
+- Verify PostgreSQL service is running (Windows)
+- Check database credentials
+- Ensure proper permissions
+
+### Email/SMS Issues
+- Verify Brevo API credentials in .env
+- Check internet connectivity
+- Verify service initialization in logs
+
+## Support
+
+For technical issues:
+- Check Flutter logs: `flutter logs`
+- Review database logs
+- Contact system administrator
 
 ## License
 
-This project is for Cherish Orthopaedic Centre and is not open source.
+[Add License Information]
