@@ -1,96 +1,178 @@
+import 'package:flutter/foundation.dart';
 import 'brevo_service.dart';
-import 'database_service.dart';
 
 class MarketingService {
   static final MarketingService _instance = MarketingService._internal();
-  final BrevoService _brevoService = BrevoService();
-  final DatabaseService _databaseService = DatabaseService();
-
-  factory MarketingService() {
-    return _instance;
-  }
-
+  factory MarketingService() => _instance;
   MarketingService._internal();
 
-  Future<void> init() async {
-    await _brevoService.init();
-    await _databaseService.init();
+  final BrevoService _brevoService = BrevoService();
+
+  Future<bool> sendEmailCampaign({
+    required List<String> recipients,
+    required String subject,
+    required String content,
+    String? templateId,
+  }) async {
+    try {
+      return await _brevoService.sendMarketingCampaign(
+        emails: recipients,
+        subject: subject,
+        htmlContent: content,
+        templateId: templateId,
+      );
+    } catch (e) {
+      debugPrint('Error sending email campaign: $e');
+      return false;
+    }
+  }
+
+  Future<bool> sendBulkSmsNotification({
+    required List<String> phoneNumbers,
+    required String message,
+  }) async {
+    try {
+      return await _brevoService.sendBulkSms(
+        phoneNumbers: phoneNumbers,
+        message: message,
+      );
+    } catch (e) {
+      debugPrint('Error sending bulk SMS: $e');
+      return false;
+    }
+  }
+
+  Future<bool> sendHealthTipsNewsletter({
+    required List<String> recipients,
+    required String title,
+    required String content,
+  }) async {
+    final subject = 'Health Tips from Cherish Orthopaedic Centre - $title';
+    final htmlContent = '''
+      <h1>$title</h1>
+      <div>$content</div>
+      <br>
+      <p>Best regards,</p>
+      <p>Cherish Orthopaedic Centre</p>
+      <p><small>To unsubscribe from these newsletters, please click <a href="#">here</a>.</small></p>
+    ''';
+
+    return await sendEmailCampaign(
+      recipients: recipients,
+      subject: subject,
+      content: htmlContent,
+    );
+  }
+
+  Future<bool> sendSpecialOfferSms({
+    required List<String> phoneNumbers,
+    required String offerDetails,
+  }) async {
+    final message = '''
+      Special Offer from Cherish Orthopaedic Centre!
+      $offerDetails
+      Book now: +254700000000
+      Reply STOP to opt out.
+    '''.trim();
+
+    return await sendBulkSmsNotification(
+      phoneNumbers: phoneNumbers,
+      message: message,
+    );
   }
 
   Future<bool> sendPromotionalEmail({
-    required String campaignName,
+    required List<String> recipients,
     required String subject,
-    required String htmlContent,
+    required String content,
   }) async {
-    // Get all patient emails from database
-    final patients = await _databaseService.getPatients();
-    final emails = patients.map((p) => p['email'] as String).toList();
+    final htmlContent = '''
+      <div style="font-family: Arial, sans-serif;">
+        <h1>$subject</h1>
+        $content
+        <br>
+        <p>Visit us at Cherish Orthopaedic Centre</p>
+        <p>For appointments, call: +254700000000</p>
+        <p><small>To unsubscribe from promotional emails, click <a href="#">here</a>.</small></p>
+      </div>
+    ''';
 
-    if (emails.isEmpty) {
-      return false;
-    }
-
-    return await _brevoService.sendMarketingCampaign(
-      emails: emails,
-      subject: subject,
-      htmlContent: htmlContent,
-      campaignName: campaignName,
+    return await sendEmailCampaign(
+      recipients: recipients,
+      subject: "Cherish Orthopaedic Centre - $subject",
+      content: htmlContent,
     );
   }
 
   Future<bool> sendPromotionalSms({
-    required String campaignName,
+    required List<String> phoneNumbers,
     required String message,
   }) async {
-    // Get all patient phone numbers from database
-    final patients = await _databaseService.getPatients();
-    final phoneNumbers = patients.map((p) => p['phone'] as String).toList();
+    final formattedMessage = '''
+      Cherish Orthopaedic Centre:
+      $message
+      Call +254700000000
+      Reply STOP to opt out.
+    '''.trim();
 
-    if (phoneNumbers.isEmpty) {
-      return false;
-    }
+    return await sendBulkSmsNotification(
+      phoneNumbers: phoneNumbers,
+      message: formattedMessage,
+    );
+  }
 
-    return await _brevoService.sendBulkSms(
+  Future<bool> sendAppointmentReminders({
+    required List<String> recipients,
+    required String appointmentDate,
+    required String doctorName,
+  }) async {
+    final subject = 'Appointment Reminder - Cherish Orthopaedic Centre';
+    final content = '''
+      <h1>Appointment Reminder</h1>
+      <p>Dear Patient,</p>
+      <p>This is a reminder for your upcoming appointment:</p>
+      <ul>
+        <li>Date: $appointmentDate</li>
+        <li>Doctor: $doctorName</li>
+      </ul>
+      <p>Please arrive 15 minutes before your scheduled appointment time.</p>
+      <p>If you need to reschedule, please contact us at least 24 hours in advance.</p>
+      <br>
+      <p>Best regards,</p>
+      <p>Cherish Orthopaedic Centre</p>
+    ''';
+
+    return await sendEmailCampaign(
+      recipients: recipients,
+      subject: subject,
+      content: content,
+    );
+  }
+
+  Future<bool> sendFollowUpReminders({
+    required List<String> phoneNumbers,
+    required String appointmentDate,
+  }) async {
+    final message = '''
+      Reminder: Your follow-up appointment at Cherish Orthopaedic Centre is scheduled for $appointmentDate. 
+      Please confirm your attendance. If you need to reschedule, call us at +254700000000.
+    ''';
+
+    return await sendBulkSmsNotification(
       phoneNumbers: phoneNumbers,
       message: message,
-      campaignName: campaignName,
     );
   }
 
-  // Example promotional campaign templates
-  Future<bool> sendHealthTipsNewsletter() async {
-    const subject = 'Monthly Health Tips from Cherish Orthopaedic Centre';
-    const htmlContent = '''
-      <h1>Your Monthly Health Tips</h1>
-      <p>Dear valued patient,</p>
-      <p>Here are some tips for maintaining good orthopaedic health:</p>
-      <ul>
-        <li>Maintain good posture</li>
-        <li>Exercise regularly</li>
-        <li>Stay hydrated</li>
-        <li>Get adequate rest</li>
-      </ul>
-      <p>Best regards,<br>Cherish Orthopaedic Centre</p>
-    ''';
-
-    return await sendPromotionalEmail(
-      campaignName: 'Monthly Health Tips',
-      subject: subject,
-      htmlContent: htmlContent,
-    );
-  }
-
-  Future<bool> sendSpecialOfferSms() async {
-    const message = '''
-      Cherish Orthopaedic Centre Special Offer!
-      20% off on physiotherapy sessions this month.
-      Book your appointment now.
-      Terms and conditions apply.
-    ''';
-
-    return await sendPromotionalSms(
-      campaignName: 'Monthly Special Offer',
-      message: message,
-    );
+  Future<Map<String, dynamic>> getCampaignStatistics(String campaignId) async {
+    try {
+      return await _brevoService.getMarketingStats(campaignId: campaignId);
+    } catch (e) {
+      debugPrint('Error getting campaign statistics: $e');
+      return {
+        'error': e.toString(),
+        'status': 'failed',
+      };
+    }
   }
 }
