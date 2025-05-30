@@ -1,40 +1,48 @@
 name: cherish_ehr_app
-description: A multi-platform EHR app for Cherish Orthopaedic Centre.
+description: "A new Flutter project"
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
-  sdk: ">=2.18.0 <3.0.0"
+  sdk: '>=3.2.3 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  sqflite: ^2.0.0+4
-  path_provider: ^2.0.11
-  path: ^1.8.2
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.0
+  path_provider: ^2.1.1
+  path: ^1.8.3
   http: ^1.1.0
-  flutter_secure_storage: ^8.0.0
+  shared_preferences: ^2.2.2
   flutter_dotenv: ^5.1.0
+  intl: ^0.18.1
+  crypto: ^3.0.3
+  provider: ^6.1.1
   flutter_localizations:
     sdk: flutter
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
   flutter_lints: ^2.0.0
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/logo.png"
+  adaptive_icon_background: "#1E1E1E"
+  adaptive_icon_foreground: "assets/icon/logo.png"
+  min_sdk_android: 21
+  windows:
+    generate: true
+    image_path: "assets/icon/logo.png"
+    icon_size: 256
 
 flutter:
   uses-material-design: true
-
   assets:
-    - assets/logo.png
-
-flutter_icons:
-  android: true
-  ios: false
-  windows: true
-  image_path: "assets/logo.png"
-  adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: "assets/logo.png"
+    - assets/icon/
+    - .env
