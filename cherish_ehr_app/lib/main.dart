@@ -1,11 +1,118 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
+import 'screens/auth/reset_password_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/admin/user_management_screen.dart';
+import 'services/auth_service.dart';
+import 'services/database_service.dart';
+import 'services/config_service.dart';
+import 'services/brevo_service.dart';
+import 'services/storage_service.dart';
+import 'models/user.dart';
+import 'models/user_role.dart';
 
-void main() {
-  runApp(CherishEHRApp());
+Future<void> initializeServices() async {
+  // Load environment variables first
+  await dotenv.load();
+  
+  // Initialize services in correct order
+  final storageService = StorageService();
+  final configService = ConfigService();
+  final databaseService = DatabaseService();
+  final authService = AuthService();
+  final brevoService = BrevoService();
+  
+  // Initialize storage first as it's needed by config
+  if (!storageService.isInitialized) {
+    await storageService.init();
+  }
+
+  // Initialize config service
+  if (!await configService.isInitialized()) {
+    await configService.init();
+  }
+
+  // Initialize remaining services
+  await databaseService.init();
+  await authService.init();
+  
+  // Only initialize Brevo if config is valid
+  if (await configService.isConfigured()) {
+    await brevoService.init();
+  } else {
+    print('Warning: Some configuration values are missing. Email services may not work properly.');
+  }
 }
 
-class CherishEHRApp extends StatelessWidget {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await initializeServices();
+    runApp(CherishEHRApp());
+  } catch (e, stackTrace) {
+    print('Error during initialization: $e');
+    print('Stack trace: $stackTrace');
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                SizedBox(height: 16),
+                Text(
+                  'Error Initializing App',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  e.toString(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.red),
+                ),
+                if (e is Error) ...[
+                  SizedBox(height: 16),
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      stackTrace.toString(),
+                      style: TextStyle(fontSize: 12),
+                      maxLines: 5,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CherishEHRApp extends StatefulWidget {
+  @override
+  _CherishEHRAppState createState() => _CherishEHRAppState();
+}
+
+class _CherishEHRAppState extends State<CherishEHRApp> {
+  final _authService = AuthService();
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService.authStateChanges.listen((user) {
+      setState(() => _currentUser = user);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -14,188 +121,70 @@ class CherishEHRApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         brightness: Brightness.light,
         fontFamily: 'Roboto',
-      ),
-      home: LoginPage(),
-      routes: {
-        '/home': (context) => HomeScreen(),
-      },
-    );
-  }
-}
-
-class LoginPage extends StatefulWidget {
-  @override
-  _LoginPageState createState() => _LoginPageState();
-}
-
-class _LoginPageState extends State<LoginPage> {
-  bool isLogin = true;
-
-  final _formKey = GlobalKey<FormState>();
-  String email = '';
-  String password = '';
-  String confirmPassword = '';
-
-  void toggleForm() {
-    setState(() {
-      isLogin = !isLogin;
-    });
-  }
-
-  Widget _buildLogo() {
-    return Column(
-      children: [
-        // Use the logo image from assets
-        Image.asset(
-          'assets/logo.png',
-          height: 120,
-        ),
-        SizedBox(height: 16),
-        Text(
-          'Cherish Orthopaedic Centre',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.blue[900],
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
           ),
         ),
-        SizedBox(height: 8),
-        Text(
-          'Nanyuki, Kenya',
-          style: TextStyle(
-            fontSize: 16,
-            color: Colors.blueGrey,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmailField() {
-    return TextFormField(
-      key: Key('email'),
-      decoration: InputDecoration(
-        labelText: 'Email',
-        prefixIcon: Icon(Icons.email),
-        border: OutlineInputBorder(),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter your email';
-        }
-        if (!value.contains('@')) {
-          return 'Please enter a valid email';
-        }
-        return null;
-      },
-      onSaved: (value) => email = value ?? '',
-    );
-  }
-
-  Widget _buildPasswordField() {
-    return TextFormField(
-      key: Key('password'),
-      decoration: InputDecoration(
-        labelText: 'Password',
-        prefixIcon: Icon(Icons.lock),
-        border: OutlineInputBorder(),
-      ),
-      obscureText: true,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter your password';
-        }
-        if (value.length < 6) {
-          return 'Password must be at least 6 characters';
-        }
-        return null;
-      },
-      onSaved: (value) => password = value ?? '',
-    );
-  }
-
-  Widget _buildConfirmPasswordField() {
-    if (isLogin) return SizedBox.shrink();
-    return TextFormField(
-      key: Key('confirmPassword'),
-      decoration: InputDecoration(
-        labelText: 'Confirm Password',
-        prefixIcon: Icon(Icons.lock),
-        border: OutlineInputBorder(),
-      ),
-      obscureText: true,
-      validator: (value) {
-        if (!isLogin) {
-          if (value == null || value.isEmpty) {
-            return 'Please confirm your password';
-          }
-          if (value != password) {
-            return 'Passwords do not match';
-          }
-        }
-        return null;
-      },
-      onSaved: (value) => confirmPassword = value ?? '',
-    );
-  }
-
-  void _submit() {
-    if (_formKey.currentState?.validate() ?? false) {
-      _formKey.currentState?.save();
-      // TODO: Implement authentication logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isLogin ? 'Logging in...' : 'Signing up...'),
-        ),
-      );
-      // Navigate to home screen after login/signup
-      Navigator.pushReplacementNamed(context, '/home');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildLogo(),
-                SizedBox(height: 32),
-                _buildEmailField(),
-                SizedBox(height: 16),
-                _buildPasswordField(),
-                SizedBox(height: 16),
-                _buildConfirmPasswordField(),
-                SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _submit,
-                  child: Text(isLogin ? 'Login' : 'Sign Up'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 48),
-                    textStyle: TextStyle(fontSize: 18),
-                  ),
-                ),
-                SizedBox(height: 16),
-                TextButton(
-                  onPressed: toggleForm,
-                  child: Text(
-                    isLogin
-                        ? 'Don\'t have an account? Sign Up'
-                        : 'Already have an account? Login',
-                    style: TextStyle(color: Colors.blue[700]),
-                  ),
-                ),
-              ],
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
         ),
       ),
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: [
+        const Locale('en', ''),
+      ],
+      home: _currentUser == null ? LoginScreen() : HomeScreen(),
+      onGenerateRoute: (settings) {
+        if (settings.name == '/login') {
+          return MaterialPageRoute(builder: (_) => LoginScreen());
+        }
+        if (settings.name == '/forgot-password') {
+          return MaterialPageRoute(builder: (_) => ForgotPasswordScreen());
+        }
+        if (settings.name?.startsWith('/reset-password/') ?? false) {
+          final token = settings.name!.split('/').last;
+          return MaterialPageRoute(
+            builder: (_) => ResetPasswordScreen(resetToken: token),
+          );
+        }
+        if (settings.name == '/admin/users') {
+          // Check if user is admin
+          if (_currentUser?.role != UserRole.admin) {
+            return MaterialPageRoute(
+              builder: (_) => Scaffold(
+                body: Center(
+                  child: Text('Access Denied'),
+                ),
+              ),
+            );
+          }
+          return MaterialPageRoute(builder: (_) => UserManagementScreen());
+        }
+        if (settings.name == '/home') {
+          return MaterialPageRoute(builder: (_) => HomeScreen());
+        }
+        return null;
+      },
     );
+  }
+
+  @override
+  void dispose() {
+    _authService.dispose();
+    super.dispose();
   }
 }
