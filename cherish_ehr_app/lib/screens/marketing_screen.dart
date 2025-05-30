@@ -10,10 +10,25 @@ class _MarketingScreenState extends State<MarketingScreen> {
   final MarketingService _marketingService = MarketingService();
   bool _isSending = false;
 
+  // Sample recipient list - in production, this would come from your database
+  final List<String> _sampleEmails = ['patient1@example.com', 'patient2@example.com'];
+  final List<String> _samplePhones = ['+254700000001', '+254700000002'];
+
   Future<void> _sendHealthTipsNewsletter() async {
     setState(() => _isSending = true);
     try {
-      final success = await _marketingService.sendHealthTipsNewsletter();
+      final success = await _marketingService.sendHealthTipsNewsletter(
+        recipients: _sampleEmails,
+        title: 'Monthly Health Tips',
+        content: '''
+          <h2>Stay Healthy with These Tips</h2>
+          <ul>
+            <li>Exercise regularly for better joint health</li>
+            <li>Maintain good posture throughout the day</li>
+            <li>Stay hydrated and eat a balanced diet</li>
+          </ul>
+        ''',
+      );
       _showResult(success, 'Health Tips Newsletter');
     } catch (e) {
       _showError(e.toString());
@@ -25,7 +40,10 @@ class _MarketingScreenState extends State<MarketingScreen> {
   Future<void> _sendSpecialOfferSms() async {
     setState(() => _isSending = true);
     try {
-      final success = await _marketingService.sendSpecialOfferSms();
+      final success = await _marketingService.sendSpecialOfferSms(
+        phoneNumbers: _samplePhones,
+        offerDetails: '20% off on all physiotherapy sessions this week! Valid until Sunday.',
+      );
       _showResult(success, 'Special Offer SMS');
     } catch (e) {
       _showError(e.toString());
@@ -115,13 +133,13 @@ class _MarketingScreenState extends State<MarketingScreen> {
                   bool success;
                   if (isEmail) {
                     success = await _marketingService.sendPromotionalEmail(
-                      campaignName: 'Custom Email Campaign',
+                      recipients: _sampleEmails,
                       subject: subject,
-                      htmlContent: content,
+                      content: content,
                     );
                   } else {
                     success = await _marketingService.sendPromotionalSms(
-                      campaignName: 'Custom SMS Campaign',
+                      phoneNumbers: _samplePhones,
                       message: content,
                     );
                   }
