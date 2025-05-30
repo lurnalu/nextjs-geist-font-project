@@ -1,9 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/appointment.dart';
 import '../services/database_service.dart';
-import '../services/brevo_service.dart';
-import '../services/notification_service.dart';
-import '../services/config_service.dart';
 
 class AppointmentListScreen extends StatefulWidget {
   @override
@@ -11,93 +7,33 @@ class AppointmentListScreen extends StatefulWidget {
 }
 
 class _AppointmentListScreenState extends State<AppointmentListScreen> {
-  List<Appointment> appointments = [];
-  late NotificationService _notificationService;
-  late DatabaseService _databaseService;
-  late BrevoService _brevoService;
+  final DatabaseService _databaseService = DatabaseService();
+  List<Map<String, dynamic>> appointments = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initializeServices();
-  }
-
-  Future<void> _initializeServices() async {
-    try {
-      _databaseService = DatabaseService();
-      _brevoService = BrevoService();
-      
-      await ConfigService().init();
-      await _brevoService.init();
-      await _databaseService.init();
-      
-      _notificationService = NotificationService(_brevoService);
-      
-      await _loadAppointments();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error initializing services: $e')),
-      );
-    }
+    _loadAppointments();
   }
 
   Future<void> _loadAppointments() async {
     try {
       setState(() => _isLoading = true);
-      final appointmentMaps = await _databaseService.getAppointments();
-      setState(() {
-        appointments = appointmentMaps.map((map) {
-          return Appointment(
-            id: map['id'],
-            patientId: map['patientId'],
-            appointmentDate: DateTime.parse(map['appointmentDate']),
-            doctorName: map['doctorName'],
-            notes: map['notes'],
-          );
-        }).toList();
-        _isLoading = false;
-      });
+      final loadedAppointments = await _databaseService.getAppointments();
+      if (mounted) {
+        setState(() {
+          appointments = loadedAppointments;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading appointments: $e')),
-      );
-    }
-  }
-
-  Future<void> _sendReminder(Appointment appointment) async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sending reminder...')),
-      );
-
-      final patientMaps = await _databaseService.getPatients();
-      final patient = patientMaps.firstWhere(
-        (p) => p['id'] == appointment.patientId,
-        orElse: () => throw Exception('Patient not found'),
-      );
-
-      final success = await _notificationService.sendAppointmentReminder(
-        email: patient['email'],
-        phoneNumber: patient['phone'],
-        patientName: '${patient['firstName']} ${patient['lastName']}',
-        appointmentDate: appointment.appointmentDate.toLocal().toString().split(' ')[0],
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success ? 'Reminder sent successfully' : 'Failed to send reminder'),
-          backgroundColor: success ? Colors.green : Colors.red,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error sending reminder: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading appointments: $e')),
+        );
+      }
     }
   }
 
@@ -121,12 +57,24 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                   itemCount: appointments.length,
                   itemBuilder: (context, index) {
                     final appointment = appointments[index];
+                    final appointmentDate = appointment['appointmentDate'] != null 
+                        ? DateTime.tryParse(appointment['appointmentDate'])
+                        : null;
+                    
                     return Card(
                       margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       child: ListTile(
-                        title: Text('Patient ID: ${appointment.patientId}'),
-                        subtitle: Text(
-                          '${appointment.appointmentDate.toLocal().toString().split(' ')[0]} - Dr. ${appointment.doctorName}',
+                        title: Text('Patient ID: ${appointment['patientId']}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Date: ${appointmentDate?.toLocal().toString().split(' ')[0] ?? 'N/A'}',
+                            ),
+                            Text('Doctor: ${appointment['doctorName'] ?? 'N/A'}'),
+                            if (appointment['notes']?.isNotEmpty ?? false)
+                              Text('Notes: ${appointment['notes']}'),
+                          ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -137,15 +85,11 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                             ),
                             IconButton(
                               icon: Icon(Icons.delete),
-                              onPressed: () => _showDeleteConfirmation(appointment),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.notifications_active),
-                              tooltip: 'Send Reminder',
-                              onPressed: () => _sendReminder(appointment),
+                              onPressed: () => _showDeleteConfirmation(appointment['id']),
                             ),
                           ],
                         ),
+                        isThreeLine: true,
                       ),
                     );
                   },
@@ -158,7 +102,7 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
     );
   }
 
-  Future<void> _showDeleteConfirmation(Appointment appointment) async {
+  Future<void> _showDeleteConfirmation(int id) async {
     return showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -172,7 +116,7 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deleteAppointment(appointment.id!);
+              _deleteAppointment(id);
             },
             child: Text(
               'Delete',
@@ -184,12 +128,12 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
     );
   }
 
-  Future<void> _showAppointmentForm({Appointment? appointment}) async {
+  Future<void> _showAppointmentForm({Map<String, dynamic>? appointment}) async {
     final _formKey = GlobalKey<FormState>();
-    int patientId = appointment?.patientId ?? 0;
-    DateTime? appointmentDate = appointment?.appointmentDate;
-    String doctorName = appointment?.doctorName ?? '';
-    String notes = appointment?.notes ?? '';
+    int patientId = appointment?['patientId'] ?? 0;
+    String appointmentDate = appointment?['appointmentDate'] ?? '';
+    String doctorName = appointment?['doctorName'] ?? '';
+    String notes = appointment?['notes'] ?? '';
 
     await showDialog(
       context: context,
@@ -210,29 +154,13 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                   onSaved: (value) => patientId = int.tryParse(value ?? '') ?? 0,
                 ),
                 TextFormField(
-                  readOnly: true,
+                  initialValue: appointmentDate,
                   decoration: InputDecoration(
-                    labelText: 'Appointment Date',
-                    hintText: appointmentDate != null
-                        ? appointmentDate.toLocal().toString().split(' ')[0]
-                        : 'Select Date',
+                    labelText: 'Appointment Date (YYYY-MM-DD)',
                   ),
-                  onTap: () async {
-                    FocusScope.of(context).requestFocus(FocusNode());
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: appointmentDate ?? DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) {
-                      setState(() {
-                        appointmentDate = picked;
-                      });
-                    }
-                  },
                   validator: (value) =>
-                      appointmentDate == null ? 'Required' : null,
+                      value == null || value.isEmpty ? 'Required' : null,
+                  onSaved: (value) => appointmentDate = value ?? '',
                 ),
                 TextFormField(
                   initialValue: doctorName,
@@ -261,20 +189,19 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
               if (_formKey.currentState?.validate() ?? false) {
                 _formKey.currentState?.save();
                 if (appointment == null) {
-                  _addAppointment(Appointment(
-                    patientId: patientId,
-                    appointmentDate: appointmentDate!,
-                    doctorName: doctorName,
-                    notes: notes,
-                  ));
+                  _addAppointment({
+                    'patientId': patientId,
+                    'appointmentDate': appointmentDate,
+                    'doctorName': doctorName,
+                    'notes': notes,
+                  });
                 } else {
-                  _updateAppointment(Appointment(
-                    id: appointment.id,
-                    patientId: patientId,
-                    appointmentDate: appointmentDate!,
-                    doctorName: doctorName,
-                    notes: notes,
-                  ));
+                  _updateAppointment(appointment['id'], {
+                    'patientId': patientId,
+                    'appointmentDate': appointmentDate,
+                    'doctorName': doctorName,
+                    'notes': notes,
+                  });
                 }
                 Navigator.pop(context);
               }
@@ -286,52 +213,42 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
     );
   }
 
-  Future<void> _addAppointment(Appointment appointment) async {
+  Future<void> _addAppointment(Map<String, dynamic> appointment) async {
     try {
-      final map = appointment.toMap();
-      final id = await _databaseService.insertAppointment(map);
-      setState(() {
-        appointments.add(Appointment(
-          id: id,
-          patientId: appointment.patientId,
-          appointmentDate: appointment.appointmentDate,
-          doctorName: appointment.doctorName,
-          notes: appointment.notes,
-        ));
-      });
+      await _databaseService.insertAppointment(appointment);
+      await _loadAppointments();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding appointment: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding appointment: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _updateAppointment(Appointment appointment) async {
+  Future<void> _updateAppointment(int id, Map<String, dynamic> appointment) async {
     try {
-      await _databaseService.updateAppointment(appointment.id!, appointment.toMap());
-      setState(() {
-        final index = appointments.indexWhere((a) => a.id == appointment.id);
-        if (index != -1) {
-          appointments[index] = appointment;
-        }
-      });
+      await _databaseService.updateAppointment(id, appointment);
+      await _loadAppointments();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating appointment: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating appointment: $e')),
+        );
+      }
     }
   }
 
   Future<void> _deleteAppointment(int id) async {
     try {
       await _databaseService.deleteAppointment(id);
-      setState(() {
-        appointments.removeWhere((a) => a.id == id);
-      });
+      await _loadAppointments();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting appointment: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting appointment: $e')),
+        );
+      }
     }
   }
 }
