@@ -1,0 +1,26 @@
+name: sales_management_system
+description: A Flutter Android app for Clinic Sales Management System
+publish_to: 'none'
+
+environment:
+  sdk: ">=2.18.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  sqflite: ^2.3.0
+  path_provider: ^2.1.1
+  pdf: ^3.10.4
+  printing: ^5.11.0
+  shared_preferences: ^2.2.1
+  provider: ^6.0.5
+  intl: ^0.18.1
+  flutter_barcode_scanner: ^2.0.0
+  permission_handler: ^10.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
