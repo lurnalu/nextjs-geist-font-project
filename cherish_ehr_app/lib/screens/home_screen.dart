@@ -1,95 +1,78 @@
 import 'package:flutter/material.dart';
-import 'patient_list_screen.dart';
-import 'appointment_list_screen.dart';
-import 'marketing_screen.dart';
+import '../services/auth_service.dart';
+import '../models/user_role.dart';
+import 'admin_dashboard.dart';
+import 'doctor_dashboard.dart';
+import 'accountant_dashboard.dart';
+import 'receptionist_dashboard.dart';
 
 class HomeScreen extends StatelessWidget {
+  final _authService = AuthService();
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Cherish Orthopaedic Centre'),
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildFeatureCard(
-              context,
-              title: 'Patients',
-              icon: Icons.people,
-              description: 'Manage patient records and information',
-              screen: PatientListScreen(),
-            ),
-            SizedBox(height: 16),
-            _buildFeatureCard(
-              context,
-              title: 'Appointments',
-              icon: Icons.calendar_today,
-              description: 'Schedule and manage appointments',
-              screen: AppointmentListScreen(),
-            ),
-            SizedBox(height: 16),
-            _buildFeatureCard(
-              context,
-              title: 'Marketing',
-              icon: Icons.campaign,
-              description: 'Send promotional emails and SMS campaigns',
-              screen: MarketingScreen(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+    final currentUser = _authService.currentUser;
+    final userRole = currentUser?.role;
 
-  Widget _buildFeatureCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required String description,
-    required Widget screen,
-  }) {
-    return Card(
-      elevation: 4,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => screen),
-          );
-        },
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, size: 32, color: Theme.of(context).primaryColor),
-                  SizedBox(width: 16),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
+    // Redirect users to their role-specific dashboards
+    switch (userRole) {
+      case UserRole.admin:
+        return AdminDashboard();
+      case UserRole.doctor:
+        return DoctorDashboard();
+      case UserRole.accountant:
+        return AccountantDashboard();
+      case UserRole.receptionist:
+        return ReceptionistDashboard();
+      default:
+        // Fallback screen for unknown roles or errors
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Cherish Orthopaedic Centre'),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.logout),
+                onPressed: () async {
+                  await _authService.logout();
+                  Navigator.pushReplacementNamed(context, '/login');
+                },
               ),
             ],
           ),
-        ),
-      ),
-    );
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.red,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Invalid User Role',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Please contact your administrator',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () async {
+                    await _authService.logout();
+                    Navigator.pushReplacementNamed(context, '/login');
+                  },
+                  child: Text('Logout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+    }
   }
 }
