@@ -1,0 +1,32 @@
+pluginManagement {
+    def flutterSdkPath = {
+        def properties = new Properties()
+        def propertiesFile = new File(settingsDir.parentFile, 'local.properties')
+        if (propertiesFile.exists()) {
+            properties.load(new FileInputStream(propertiesFile))
+            return properties.getProperty('flutter.sdk')
+        } else {
+            return null
+        }
+    }()
+
+    includeBuild("${flutterSdkPath}/packages/flutter_tools/gradle/plugin")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+}
+
+include ':app'
+
+// Configure all Flutter plugins
+getFlutterPlugins().each { plugin ->
+    include ":${plugin.name}"
+    project(":${plugin.name}").projectDir = plugin.path
+}
