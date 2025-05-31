@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import 'database_helper.dart';
 
@@ -8,14 +8,15 @@ class AuthService extends ChangeNotifier {
   static const String _userRoleKey = 'userRole';
   
   final DatabaseHelper _db = DatabaseHelper();
+  SharedPreferences? _prefs;
   User? _currentUser;
   
   User? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
 
   Future<bool> initialize() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt(_userIdKey);
+    _prefs = await SharedPreferences.getInstance();
+    final userId = _prefs?.getInt(_userIdKey);
     
     if (userId != null) {
       try {
@@ -51,9 +52,9 @@ class AuthService extends ChangeNotifier {
         _currentUser = User.fromMap(maps.first);
         
         // Save session
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(_userIdKey, _currentUser!.id!);
-        await prefs.setString(_userRoleKey, _currentUser!.role.toString());
+        _prefs = await SharedPreferences.getInstance();
+        await _prefs?.setInt(_userIdKey, _currentUser!.id!);
+        await _prefs?.setString(_userRoleKey, _currentUser!.role.toString());
         
         notifyListeners();
         return true;
@@ -67,9 +68,9 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_userIdKey);
-      await prefs.remove(_userRoleKey);
+      _prefs = await SharedPreferences.getInstance();
+      await _prefs?.remove(_userIdKey);
+      await _prefs?.remove(_userRoleKey);
       
       _currentUser = null;
       notifyListeners();
